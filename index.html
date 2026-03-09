@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Bản Đồ Web GIS</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        body, html { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; height: 100%; background-color: #f4f4f9; }
+        #map { width: 100%; height: 100vh; }
+        
+        .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .popup-header { margin: 0 0 10px 0; padding-bottom: 8px; border-bottom: 2px solid #2980b9; color: #2980b9; font-size: 16px; font-weight: bold; text-transform: uppercase; }
+        .info-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .info-table th, .info-table td { padding: 8px 10px; border-bottom: 1px solid #eee; text-align: left; vertical-align: top; }
+        .info-table th { background-color: #f8f9fa; color: #333; width: 35%; font-weight: 600; }
+        .info-table tr:nth-child(even) td, .info-table tr:nth-child(even) th { background-color: #fdfdfd; }
+        .info-table tr:last-child th, .info-table tr:last-child td { border-bottom: none; }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        var map = L.map('map').setView([21.0285, 105.8542], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+
+        var overlayMaps = {};
+        var layerControl = L.control.layers(null, overlayMaps, { collapsed: false }).addTo(map);
+
+        const layerConfig = {
+            'bounds': { name: 'bounds', color: '#e74c3c', style: { color: '#e74c3c', weight: 3, dashArray: '6, 8', fillOpacity: 0.1 } },
+            'building': { name: 'building', color: '#3498db', style: { color: '#2c3e50', weight: 1.5, fillColor: '#3498db', fillOpacity: 0.65 } },
+            'road': { name: 'road', color: '#34495e', style: { color: '#34495e', weight: 4, opacity: 0.9, fill: false } },
+            'garbadge': { name: 'garbadge', color: '#27ae60' },
+            'instruction-generated': { name: 'instruction-generated', color: '#8e44ad', style: { color: '#8e44ad', weight: 2, fillOpacity: 0.4 } }
+        };
+
+        function loadLayer(tableName) {
+            var config = layerConfig[tableName];
+            if (!config) return;
+
+            var apiUrl = 'http://localhost:3000/api/' + tableName;
+
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(geojsonData => {
+                    if (geojsonData.error || !geojsonData.features || geojsonData.features.length === 0) return;
+
+                    var geojsonLayer = L.geoJSON(geojsonData, {
+                        style: function (feature) {
+                            return config.style;
+                        },
+                        pointToLayer: function (feature, latlng) {
+                            return L.circleMarker(latlng, {
+                                radius: 6,
+                                fillColor: config.color,
+                                color: "#ffffff",
+                                weight: 2,
+                                fillOpacity: 1
+                            });
+                        },
+                        onEachFeature: function (feature, layer) {
+                            if (feature.properties) {
+                                var popupContent = "<h3 class='popup-header'>" + config.name + "</h3>";
+                                popupContent += "<table class='info-table'>";
+                                
+                                for (var key in feature.properties) {
+                                    var value = feature.properties[key];
+                                    if (value !== null && value !== "") { 
+                                        popupContent += "<tr><th>" + key + "</th><td>" + value + "</td></tr>";
+                                    }
+                                }
+                                popupContent += "</table>";
+                                layer.bindPopup(popupContent, { minWidth: 280, maxWidth: 450 });
+                            }
+                        }
+                    });
+
+                    geojsonLayer.addTo(map);
+                    
+                    let iconHtml = `<span style="display:inline-block; width:12px; height:12px; background:${config.color}; border:1px solid #333; margin-right:5px;"></span>`;
+                    layerControl.addOverlay(geojsonLayer, iconHtml + config.name);
+
+                    if (tableName === 'bounds') {
+                        map.fitBounds(geojsonLayer.getBounds(), { padding: [20, 20] });
+                    }
+                })
+                .catch(error => console.error("Lỗi:", error));
+        }
+
+        loadLayer('bounds');                
+        loadLayer('building');              
+        loadLayer('road');                  
+        loadLayer('garbadge');              
+        loadLayer('instruction-generated'); 
+        
+    </script>
+</body>
+</html>
