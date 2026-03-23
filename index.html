@@ -1,109 +1,474 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ Thống Bản Đồ Web GIS</title>
+    <title>Modern GIS Dashboard</title>
     
+    <!-- Leaflet GIS Library -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
-        body, html { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; height: 100%; background-color: #f4f4f9; }
-        #map { width: 100%; height: 100vh; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; overflow: hidden; }
+        #map { height: 100vh; width: 100vw; background: #1a1a2e; }
         
-        .leaflet-popup-content-wrapper { border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-        .popup-header { margin: 0 0 10px 0; padding-bottom: 8px; border-bottom: 2px solid #2980b9; color: #2980b9; font-size: 16px; font-weight: bold; text-transform: uppercase; }
-        .info-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .info-table th, .info-table td { padding: 8px 10px; border-bottom: 1px solid #eee; text-align: left; vertical-align: top; }
-        .info-table th { background-color: #f8f9fa; color: #333; width: 35%; font-weight: 600; }
-        .info-table tr:nth-child(even) td, .info-table tr:nth-child(even) th { background-color: #fdfdfd; }
-        .info-table tr:last-child th, .info-table tr:last-child td { border-bottom: none; }
+        /* Control Panel */
+        .controls {
+            position: absolute; top: 20px; left: 60px; z-index: 1000;
+            background: rgba(15, 15, 30, 0.92);
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.08);
+            min-width: 220px;
+            color: #e0e0e0;
+        }
+        .controls h2 {
+            font-size: 16px;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 14px;
+            letter-spacing: 0.5px;
+        }
+
+        /* Layer Row */
+        .layer-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+        .layer-btn {
+            flex: 1;
+            padding: 9px 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+            cursor: pointer;
+            text-align: left;
+            font-weight: 500;
+            font-size: 13px;
+            font-family: inherit;
+            color: #aaa;
+            transition: all 0.2s ease;
+        }
+        .layer-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .layer-btn.active {
+            border-color: transparent;
+            color: #fff;
+        }
+        .layer-btn.active[data-layer="building"] { background: linear-gradient(135deg, #e67e22, #f39c12); }
+        .layer-btn.active[data-layer="road"] { background: linear-gradient(135deg, #2980b9, #3498db); }
+        .layer-btn.active[data-layer="garbadge"] { background: linear-gradient(135deg, #27ae60, #2ecc71); }
+
+        /* Delete All Button */
+        .btn-delete-all {
+            width: 32px; height: 32px;
+            border: 1px solid rgba(255,70,90,0.3);
+            border-radius: 8px;
+            background: rgba(255,70,90,0.1);
+            color: #ff4757;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s ease;
+        }
+        .btn-delete-all:hover {
+            background: rgba(255,70,90,0.3);
+            border-color: #ff4757;
+            transform: scale(1.05);
+        }
+
+        .divider {
+            height: 1px;
+            background: rgba(255,255,255,0.08);
+            margin: 12px 0;
+        }
+
+        .stats {
+            font-size: 11px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        /* Filter Controls */
+        .filter-group {
+            margin-bottom: 10px;
+        }
+        .filter-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+        .filter-group select {
+            width: 100%;
+            padding: 7px 10px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #e0e0e0;
+            font-size: 12px;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .filter-group select:focus {
+            border-color: #4ecdc4;
+        }
+        .filter-group select option {
+            background: #1a1a2e;
+            color: #fff;
+        }
+
+        /* Popup Style */
+        .leaflet-popup-content-wrapper {
+            border-radius: 12px;
+            font-family: 'Inter', sans-serif;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        .leaflet-popup-content { margin: 14px 16px; }
+
+        .popup-header {
+            font-size: 13px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #eee;
+        }
+        .popup-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            padding: 3px 0;
+            color: #555;
+        }
+        .popup-row .label { font-weight: 600; color: #333; }
+        .popup-row .value { color: #666; }
+
+        .btn-delete {
+            background: linear-gradient(135deg, #ff4757, #ff6b81);
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 10px;
+            width: 100%;
+            font-weight: 600;
+            font-size: 12px;
+            font-family: inherit;
+            transition: all 0.2s;
+            letter-spacing: 0.3px;
+        }
+        .btn-delete:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,71,87,0.4); }
+        
+        /* Loading */
+        .loading {
+            position: absolute; bottom: 20px; right: 20px; z-index: 1000;
+            background: rgba(15, 15, 30, 0.9);
+            color: #4ecdc4;
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: none;
+            border: 1px solid rgba(78, 205, 196, 0.3);
+            backdrop-filter: blur(8px);
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            z-index: 2000;
+            background: rgba(15, 15, 30, 0.95);
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 500;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+        .toast.show { opacity: 1; }
+
+        /* Custom Marker Hover */
+        .custom-marker { transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .custom-marker:hover {
+            transform: scale(1.3) !important;
+            box-shadow: 0 0 15px rgba(46, 204, 113, 0.8) !important;
+            border-color: #f1c40f !important;
+            z-index: 1000 !important;
+        }
     </style>
 </head>
 <body>
 
+    <div class="controls">
+        <h2><i class="fa-solid fa-layer-group"></i> GIS Layers</h2>
+        
+        <div class="layer-row">
+            <button class="layer-btn active" data-layer="building" onclick="toggleLayer('building', this)"><i class="fa-solid fa-building"></i> Buildings</button>
+            <button class="btn-delete-all" onclick="deleteAll('building')" title="Xóa hết Buildings"><i class="fa-solid fa-trash"></i></button>
+        </div>
+        <div class="layer-row">
+            <button class="layer-btn active" data-layer="road" onclick="toggleLayer('road', this)"><i class="fa-solid fa-road"></i> Roads</button>
+            <button class="btn-delete-all" onclick="deleteAll('road')" title="Xóa hết Roads"><i class="fa-solid fa-trash"></i></button>
+        </div>
+        <div class="layer-row">
+            <button class="layer-btn active" data-layer="garbadge" onclick="toggleLayer('garbadge', this)"><i class="fa-solid fa-trash-can"></i> Garbage</button>
+            <button class="btn-delete-all" onclick="deleteAll('garbadge')" title="Xóa hết Garbage"><i class="fa-solid fa-trash"></i></button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="filter-group">
+            <label><i class="fa-solid fa-filter"></i> Lọc Tòa nhà (NATURE):</label>
+            <select id="filter-building" onchange="applyFilter('building')">
+                <option value="">-- Tất cả --</option>
+                <option value="Residential">Residential</option>
+                <option value="Industrial">Industrial</option>
+            </select>
+        </div>
+
+        <div class="filter-group">
+            <label><i class="fa-solid fa-filter"></i> Lọc Đường (Số làn):</label>
+            <select id="filter-road" onchange="applyFilter('road')">
+                <option value="">-- Tất cả --</option>
+                <option value="2">2 Làn</option>
+            </select>
+        </div>
+
+        <div class="divider"></div>
+        <div class="stats" id="stats">Loading...</div>
+    </div>
+
+    <div id="loading" class="loading"><i class="fa-solid fa-satellite-dish"></i> Đang đồng bộ...</div>
+    <div id="toast" class="toast"></div>
     <div id="map"></div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
     <script>
-        var map = L.map('map').setView([21.0285, 105.8542], 13);
+        const API_BASE = "/api";
+        
+        // 1. Initialize Map
+        const map = L.map('map').setView([10.762622, 106.660172], 15);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            attribution: '© OpenStreetMap'
         }).addTo(map);
 
-        var overlayMaps = {};
-        var layerControl = L.control.layers(null, overlayMaps, { collapsed: false }).addTo(map);
+        // Layer Storage
+        const layers = {};
+        const layerCounts = {};
 
-        const layerConfig = {
-            'bounds': { name: 'bounds', color: '#e74c3c', style: { color: '#e74c3c', weight: 3, dashArray: '6, 8', fillOpacity: 0.1 } },
-            'building': { name: 'building', color: '#3498db', style: { color: '#2c3e50', weight: 1.5, fillColor: '#3498db', fillOpacity: 0.65 } },
-            'road': { name: 'road', color: '#34495e', style: { color: '#34495e', weight: 4, opacity: 0.9, fill: false } },
-            'garbadge': { name: 'garbadge', color: '#27ae60' },
-            'instruction-generated': { name: 'instruction-generated', color: '#8e44ad', style: { color: '#8e44ad', weight: 2, fillOpacity: 0.4 } }
-        };
-
-        function loadLayer(tableName) {
-            var config = layerConfig[tableName];
-            if (!config) return;
-
-            var apiUrl = 'http://localhost:3000/api/' + tableName;
-
-            fetch(apiUrl)
-                .then(response => response.json())
-                .then(geojsonData => {
-                    if (geojsonData.error || !geojsonData.features || geojsonData.features.length === 0) return;
-
-                    var geojsonLayer = L.geoJSON(geojsonData, {
-                        style: function (feature) {
-                            return config.style;
-                        },
-                        pointToLayer: function (feature, latlng) {
-                            return L.circleMarker(latlng, {
-                                radius: 6,
-                                fillColor: config.color,
-                                color: "#ffffff",
-                                weight: 2,
-                                fillOpacity: 1
-                            });
-                        },
-                        onEachFeature: function (feature, layer) {
-                            if (feature.properties) {
-                                var popupContent = "<h3 class='popup-header'>" + config.name + "</h3>";
-                                popupContent += "<table class='info-table'>";
-                                
-                                for (var key in feature.properties) {
-                                    var value = feature.properties[key];
-                                    if (value !== null && value !== "") { 
-                                        popupContent += "<tr><th>" + key + "</th><td>" + value + "</td></tr>";
-                                    }
-                                }
-                                popupContent += "</table>";
-                                layer.bindPopup(popupContent, { minWidth: 280, maxWidth: 450 });
-                            }
-                        }
-                    });
-
-                    geojsonLayer.addTo(map);
-                    
-                    let iconHtml = `<span style="display:inline-block; width:12px; height:12px; background:${config.color}; border:1px solid #333; margin-right:5px;"></span>`;
-                    layerControl.addOverlay(geojsonLayer, iconHtml + config.name);
-
-                    if (tableName === 'bounds') {
-                        map.fitBounds(geojsonLayer.getBounds(), { padding: [20, 20] });
-                    }
-                })
-                .catch(error => console.error("Lỗi:", error));
+        // Toast notification
+        function showToast(msg, duration = 2500) {
+            const toast = document.getElementById('toast');
+            toast.innerHTML = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), duration);
         }
 
-        loadLayer('bounds');                
-        loadLayer('building');              
-        loadLayer('road');                  
-        loadLayer('garbadge');              
-        loadLayer('instruction-generated'); 
-        
+        // Update stats
+        function updateStats() {
+            const parts = [];
+            for (const [name, count] of Object.entries(layerCounts)) {
+                const icon = name === 'building' ? '<i class="fa-solid fa-building"></i>' : name === 'road' ? '<i class="fa-solid fa-road"></i>' : '<i class="fa-solid fa-trash-can"></i>';
+                parts.push(`${icon} ${count}`);
+            }
+            document.getElementById('stats').innerHTML = parts.join(' &nbsp;&middot;&nbsp; ') || 'No data loaded';
+        }
+
+        // Layer styles
+        const layerStyles = {
+            building: { color: '#b0bec5', fillColor: '#455a64', weight: 1.2, fillOpacity: 0.6 },
+            road: { color: '#3498db', weight: 4, opacity: 0.6 },
+            garbadge: { color: '#27ae60', fillColor: '#2ecc71', weight: 2, fillOpacity: 0.7 }
+        };
+
+        // 2. Load layer from API
+        async function loadLayer(tableName) {
+            document.getElementById('loading').style.display = 'block';
+            try {
+                let url = `${API_BASE}/${tableName}`;
+                const params = new URLSearchParams();
+
+                if (tableName === 'building') {
+                    const nature = document.getElementById('filter-building').value;
+                    if (nature) params.append('nature', nature);
+                }
+                if (tableName === 'road') {
+                    const lanes = document.getElementById('filter-road').value;
+                    if (lanes) params.append('nblanes', lanes);
+                }
+                
+                if (params.toString()) {
+                    url += `?${params.toString()}`;
+                }
+
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (layers[tableName]) map.removeLayer(layers[tableName]);
+
+                const featureCount = data.features ? data.features.length : 0;
+                layerCounts[tableName] = featureCount;
+
+                const geoJsonLayer = L.geoJSON(data, {
+                    style: () => layerStyles[tableName] || { color: '#95a5a6', weight: 2 },
+                    pointToLayer: (feature, latlng) => {
+                        const iconHtml = `<div class="custom-marker" style="background-color: #2ecc71; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"><i class="fa-solid fa-trash-can" style="font-size: 11px;"></i></div>`;
+                        const customIcon = L.divIcon({ html: iconHtml, className: '', iconSize: [24, 24], iconAnchor: [12, 12] });
+                        return L.marker(latlng, { icon: customIcon });
+                    },
+                    onEachFeature: (feature, layer) => {
+                        // Thêm hiệu ứng Hover cho toà nhà và đường xá (Polygons, Lines)
+                        if (layer.setStyle) {
+                            layer.on({
+                                mouseover: function (e) {
+                                    const hoveredLayer = e.target;
+                                    hoveredLayer.setStyle({
+                                        weight: 5,
+                                        color: '#00ffff', // Neon Cyan glow
+                                        fillOpacity: 0.9
+                                    });
+                                    if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+                                        hoveredLayer.bringToFront();
+                                    }
+                                },
+                                mouseout: function (e) {
+                                    geoJsonLayer.resetStyle(e.target);
+                                },
+                                popupopen: function(e) {
+                                    // Bấm vào hiện popup thì reset tránh kẹt hiệu ứng
+                                    geoJsonLayer.resetStyle(e.target);
+                                }
+                            });
+                        }
+
+                        let props = feature.properties;
+                        let gid = props.gid || "N/A";
+                        
+                        let content = `<div style="min-width: 180px;">
+                            <div class="popup-header">${tableName.toUpperCase()} — #${gid}</div>`;
+                        
+                        for (let key in props) {
+                            if (key === 'gid') continue;
+                            let val = props[key];
+                            if (val === null || val === undefined || val === '') val = '—';
+                            content += `<div class="popup-row">
+                                <span class="label">${key}</span>
+                                <span class="value">${val}</span>
+                            </div>`;
+                        }
+
+                        if (gid !== "N/A") {
+                            content += `<button class="btn-delete" onclick="deleteObject('${tableName}', ${gid})"><i class="fa-solid fa-trash"></i> Xóa đối tượng này</button>`;
+                        }
+                        content += `</div>`;
+                        
+                        layer.bindPopup(content);
+                    }
+                });
+                
+                layers[tableName] = geoJsonLayer.addTo(map);
+
+                // Zoom to fit on first load
+                if (featureCount > 0 && Object.keys(layers).length <= 1) {
+                    map.fitBounds(layers[tableName].getBounds().pad(0.1));
+                }
+
+                updateStats();
+            } catch (err) {
+                console.error(`Error loading ${tableName}:`, err);
+                showToast(`<i class="fa-solid fa-xmark"></i> Lỗi tải ${tableName}`);
+            }
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // 3. Delete single object
+        async function deleteObject(table, gid) {
+            if (!confirm(`Bạn có chắc muốn xóa đối tượng #${gid} khỏi bảng ${table}?`)) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/${table}/${gid}`, { method: 'DELETE' });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showToast(`<i class="fa-solid fa-check"></i> ${result.message}`);
+                    loadLayer(table);
+                } else {
+                    showToast(`<i class="fa-solid fa-xmark"></i> ${result.detail}`);
+                }
+            } catch (err) {
+                showToast(`<i class="fa-solid fa-xmark"></i> Lỗi kết nối server`);
+            }
+        }
+
+        // 4. Delete ALL objects in a table
+        async function deleteAll(table) {
+            const count = layerCounts[table] || '?';
+            if (!confirm(`⚠️ Bạn có chắc muốn XÓA HẾT ${count} đối tượng trong bảng ${table}?\n\nHành động này không thể hoàn tác!`)) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/${table}/all`, { method: 'DELETE' });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showToast(`<i class="fa-solid fa-check"></i> ${result.message}`);
+                    loadLayer(table);
+                } else {
+                    showToast(`<i class="fa-solid fa-xmark"></i> ${result.detail}`);
+                }
+            } catch (err) {
+                showToast(`<i class="fa-solid fa-xmark"></i> Lỗi kết nối server`);
+            }
+        }
+
+        // 5. Toggle Visibility
+        function toggleLayer(name, btn) {
+            if (btn.classList.contains('active')) {
+                // If it's active, we remove it
+                if (layers[name] && map.hasLayer(layers[name])) {
+                    map.removeLayer(layers[name]);
+                }
+                btn.classList.remove('active');
+            } else {
+                // If it's not active, we load it
+                loadLayer(name);
+                btn.classList.add('active');
+            }
+        }
+
+        // Apply specific filter
+        function applyFilter(tableName) {
+            // Check if button is actually active before reloading
+            const btn = document.querySelector(`button[data-layer="${tableName}"]`);
+            if (btn && btn.classList.contains('active')) {
+                loadLayer(tableName);
+            }
+        }
+
+        // Initial Load
+        loadLayer('building');
+        loadLayer('road');
+        loadLayer('garbadge');
+
     </script>
 </body>
 </html>

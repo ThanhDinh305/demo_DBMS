@@ -1,4 +1,8 @@
-Flask
-Flask-Cors
-SQLAlchemy
-psycopg2
+fastapi
+uvicorn
+sqlalchemy
+geoalchemy2
+geopandas
+shapely
+psycopg2-binary
+python-multipart

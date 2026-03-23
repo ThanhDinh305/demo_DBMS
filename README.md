@@ -1,25 +1,37 @@
-# Báo cáo demo DB
+# Hệ Thống Modern GIS Dashboard
 
-## 1. Cấu trúc thư mục
-- `db.sql`: File backup database
-- `data/`: Chứa các file Shapefile gốc .shp dùng để import vào database.
-- `app.py`: Code API backend bằng Python.
-- `index.html`: Giao diện web.
-- `requirements.txt`: Các thư viện Python cần thiết để chạy code.
+Hệ thống cung cấp giải pháp nhập dữ liệu địa lý hình học (shapefile) vào cơ sở dữ liệu không gian PostgreSQL/PostGIS và hiển thị trực quan thông qua bản đồ web.
 
-## 2. Các bước cài đặt và chạy code
+## Cấu Trúc Dự Án
+- `main.py`: Khởi tạo REST API bằng FastAPI và phục vụ giao diện trực tiếp (port 3000).
+- `import_data.py`: Đọc dữ liệu từ folder `data/`, đồng bộ hệ quy chiếu VN-2000 về WGS84, thêm khóa chính (Primary Key) và tự động insert vào database PostGIS.
+- `index.html`: Giao diện tương tác GIS phía client (Leaflet).
+- `data/`: Thư mục lưu trữ tập tin Shapefile đầu vào (`.shp`).
+- `requirements.txt`: Các thư viện phụ thuộc.
 
-### Bước 1: Chuẩn bị Database (PostgreSQL + PostGIS)
-1. Tạo một database mới .
-2. Chạy câu lệnh sql sau để bật extension GIS: `CREATE EXTENSION postgis;`
-3. Dùng tool **PostGIS Shapefile Import/Export Manager** (có sẵn khi cài PostGIS) để import file trong thư mục `data/` vào.
+## Hướng Dẫn Cài Đặt và Khởi Chạy
 
-### Bước 2: Chạy Backend (Python)
-1. Mở Terminal / CMD ở thư mục code, chạy lệnh cài thư viện:
-   `pip install -r requirements.txt`
-2. Mở file `app.py` lên và chạy backend bằng lệnh: 
-   `python app.py`
-3. Nếu thấy báo chạy ở `http://localhost:3000` là ok.
+### 1. Chuẩn bị Cơ Sở Dữ Liệu
+Tạo database tên `demo` thông qua PostgreSQL và kích hoạt extension không gian:
+```sql
+CREATE EXTENSION postgis;
+```
 
-### Bước 3: Chạy Frontend (Web)
-Chỉ cần nhấp đúp mở trực tiếp file `index.html` bằng trình duyệt (Chrome, Edge) là bản đồ sẽ load lên. 
+### 2. Thiết Lập Môi Trường
+Tiến hành cài đặt thư viện tại Terminal/CMD:
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Nạp Dữ Liệu (Import Data)
+Thực thi lệnh nhập shapefile tự động vào cơ sở dữ liệu:
+```bash
+python import_data.py
+```
+
+### 4. Vận Hành Khởi Chạy (Run Server)
+Mở một cửa sổ Terminal mới và kích hoạt máy chủ kết nối:
+```bash
+python main.py
+```
+> Truy cập `http://localhost:3000` trên trình duyệt để sử dụng ứng dụng. Tại đây bạn có thể thao tác lọc lớp dữ liệu (Building, Road, Garbage) và xóa đối tượng động (CRUD).
